@@ -29,7 +29,7 @@ var request = require('request');
 const MBF_DIRECT_LINE_ENDPOINT   = process.env.MBF_DIRECT_LINE_ENDPOINT;
 const MBF_DIRECT_LINE_SECRET     = process.env.MBF_DIRECT_LINE_SECRET;
 const LINE_BOT_CHANNEL_ACCESS_TOKEN = process.env.LINE_BOT_CHANNEL_ACCESS_TOKEN;
-
+const port=process.env.PORT
 
 // Setup Restify Server
 const server = restify.createServer({
