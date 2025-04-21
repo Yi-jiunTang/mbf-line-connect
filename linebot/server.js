@@ -26,9 +26,10 @@
 var restify = require('restify');
 var request = require('request');
 
-var MBF_DIRECT_LINE_ENDPOINT = 'https://directline.botframework.com';
-var MBF_DIRECT_LINE_SECRET = '';
-var LINE_BOT_CHANNEL_ACCESS_TOKEN = '';
+const MBF_DIRECT_LINE_ENDPOINT   = process.env.MBF_DIRECT_LINE_ENDPOINT;
+const MBF_DIRECT_LINE_SECRET     = process.env.MBF_DIRECT_LINE_SECRET;
+const LINE_BOT_CHANNEL_ACCESS_TOKEN = process.env.LINE_BOT_CHANNEL_ACCESS_TOKEN;
+
 
 // Setup Restify Server
 const server = restify.createServer({
