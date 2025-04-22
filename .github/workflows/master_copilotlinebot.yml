@@ -53,8 +53,14 @@ jobs:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout
 
-    steps:
-     
+    steps:     
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_A438C2B2BE054AAAA6F9161777028E7E }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4B9422637D0C4558AF6D051B66765920 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_08233C093CDF48BCADF04ABCEFE222EF }}
+
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
