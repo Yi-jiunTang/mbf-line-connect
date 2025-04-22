@@ -44,7 +44,7 @@ server.use(restify.bodyParser({
 }));
 
 // Webhook URL
-server.post("/webhook", function(req, res, next){
+server.use("/", function(req, res, next){
 
     var replyToken = req.body.events[0].replyToken;
     var userId = req.body.events[0].source.userId;
