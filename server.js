@@ -50,6 +50,12 @@ server.post("/", function(req, res, next){
     var userId = req.body.events[0].source.userId;
     var lineMessage = req.body.events[0].message.text;
 
+    // 如果没有 body 或 body.events 不是 array，就先 200 跳出
+    if (!req.body || !Array.isArray(req.body.events)) {
+    res.send(200);
+    return next();
+    }
+
     // Bypass the message to bot fraemwork via Direct Line REST API
     // Ref: https://docs.botframework.com/en-us/restapi/directline3/#navtitle
 
@@ -111,6 +117,8 @@ server.post("/", function(req, res, next){
         });
     res.send(200);
     return next();
+    // 真正的异步处理
+    processEvents(req.body.events).catch(err => console.error(err));
 });
 
 server.listen(process.env.port || process.env.PORT || 5000, function () {
