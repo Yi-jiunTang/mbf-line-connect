@@ -28,6 +28,12 @@ jobs:
       
       - name: Install dependencies
         run: npm install --production
+
+      - name: List files before deploy
+        run: |
+          echo "Working directory: $(pwd)"
+          ls -R .
+      
         
       - name: Set up Node.js version
         uses: actions/setup-node@v3
@@ -59,11 +65,11 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4B9422637D0C4558AF6D051B66765920 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_08233C093CDF48BCADF04ABCEFE222EF }}
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'copilotlinebot'
-          slot-name: 'Production'
-          package: .            # ← 把根目录全推上去
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: .               # ← 一定要是点，代表「打包根目录」
+        
           
