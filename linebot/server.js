@@ -1,168 +1,118 @@
-// server.js – LINE ↔ Copilot Studio relay (Restify)
-// --------------------------------------------------
-// 環境變數（App Service → Settings → Configuration）
-//   MBF_DIRECT_LINE_ENDPOINT=https://directline.botframework.com
-//   MBF_DIRECT_LINE_SECRET=<Copilot Direct Line Secret>
-//   LINE_BOT_CHANNEL_ACCESS_TOKEN=<LINE Channel Access Token>
-//   PORT 由平台自動注入
+// 
+// Copyright (c) Eric ShangKuan. All rights reserved.
+// Licensed under the MIT license.
+// 
+// MIT License:
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+// 
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED ""AS IS"", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
 
-const restify = require('restify');
-const request = require('request');
+var restify = require('restify');
+var request = require('request');
 
-const MBF_ENDPOINT = process.env.MBF_DIRECT_LINE_ENDPOINT || 'https://directline.botframework.com';
-const MBF_SECRET   = process.env.MBF_DIRECT_LINE_SECRET;
-const LINE_TOKEN  = process.env.LINE_BOT_CHANNEL_ACCESS_TOKEN;
-const PORT        = process.env.PORT || 3000;
+const MBF_DIRECT_LINE_ENDPOINT   = process.env.MBF_DIRECT_LINE_ENDPOINT;
+const MBF_DIRECT_LINE_SECRET     = process.env.MBF_DIRECT_LINE_SECRET;
+const LINE_BOT_CHANNEL_ACCESS_TOKEN = process.env.LINE_BOT_CHANNEL_ACCESS_TOKEN;
 
-if (!MBF_SECRET || !LINE_TOKEN) {
-  console.error('環境變數缺少 MBF_DIRECT_LINE_SECRET 或 LINE_BOT_CHANNEL_ACCESS_TOKEN');
-  process.exit(1);
-}
 
-//--------------------------------------------------
-// 1. 建立 Restify 伺服器
-//--------------------------------------------------
-const server = restify.createServer({ name: 'line-copilot-relay', version: '1.0.0' });
-server.use(restify.plugins.acceptParser(server.acceptable));
-server.use(restify.plugins.queryParser());
-server.use(restify.plugins.bodyParser({ mapParams: false }));
-
-//--------------------------------------------------
-// 2. 記憶 userId ↔ conversationId，避免每次新開
-//--------------------------------------------------
-const convCache = new Map(); // userId -> { conversationId, token, streamUrl, watermark }
-
-//--------------------------------------------------
-// 3. 主 Webhook：先回 200，再背景處理
-//--------------------------------------------------
-server.post('/', (req, res, next) => {
-  // LINE 1 秒超時限制 → 立即回 200
-  res.send(200);
-  next();
-
-  if (!req.body || !Array.isArray(req.body.events)) return;
-  processEvents(req.body.events).catch(err => console.error('processEvents error', err));
+// Setup Restify Server
+const server = restify.createServer({
+    name: 'skweather',
+    version: '0.0.1'
 });
 
-//--------------------------------------------------
-// 4. 背景處理: 對 Copilot 說話 → 把回覆轉回 LINE
-//--------------------------------------------------
-async function processEvents(events) {
-  for (const evt of events) {
-    if (evt.type !== 'message' || evt.message.type !== 'text') continue;
+server.use(restify.acceptParser(server.acceptable));
+server.use(restify.queryParser());
+server.use(restify.bodyParser({
+    mapParams: false
+}));
 
-    const userId     = evt.source.userId;
-    const lineText   = evt.message.text;
-    const replyToken = evt.replyToken;
+// Webhook URL
+server.get("/", function(req, res, next){
 
-    // 4.1 取得 conversationId & token
-    const conv = await getConversation(userId);
+    var replyToken = req.body.events[0].replyToken;
+    var userId = req.body.events[0].source.userId;
+    var lineMessage = req.body.events[0].message.text;
 
-    // 4.2 對 Copilot 發訊息
-    await dlPostMessage(conv.conversationId, conv.token, userId, lineText);
+    // Bypass the message to bot fraemwork via Direct Line REST API
+    // Ref: https://docs.botframework.com/en-us/restapi/directline3/#navtitle
 
-    // 4.3 取得 Copilot 回覆（簡易輪詢 3 次，每 1 秒）
-    const botMsg = await pollBotReply(conv, 3, 1000);
+    // Start a conversation
+    request.post(MBF_DIRECT_LINE_ENDPOINT + '/v3/directline/conversations',
+        {
+            auth: {
+                'bearer': MBF_DIRECT_LINE_SECRET
+            },
+            json: {}
+        },
+        function (error, response, body) {
+            // retrive the conversaion info
+            var conversationId = body.conversationId;
+            var token = body.token;
+            var streamUrl = body.streamUrl;
+            
+            // send message
+            request.post(MBF_DIRECT_LINE_ENDPOINT + '/v3/directline/conversations/' + conversationId + '/activities',
+                {
+                    auth: {
+                        'bearer': token
+                    },
+                    json: {
+                        'type': 'message',
+                        'from': {
+                            'id': userId
+                        },
+                        'text': lineMessage
+                    }
+                },
+                function(error, response, sendBody){
 
-    // 4.4 回 LINE
-    if (botMsg) {
-      await lineReply(replyToken, botMsg);
-    }
-  }
-}
+                    // receive reply from stream url
+                    request.get(streamUrl + '?t=' + token, 
+                        {}, 
+                        function(error, response, streamBody){
+                            // reply to Line user
+                            request.post('https://api.line.me/v2/bot/message/reply',
+                                {
+                                    auth: {
+                                        'bearer': LINE_BOT_CHANNEL_ACCESS_TOKEN
+                                    },
+                                    json: {
+                                        replyToken: replyToken,
+                                        messages: [
+                                            {
+                                                "type": "text",
+                                                "text": streamBody.activities[0].text
+                                            }
+                                        ]
+                                    }
+                                },
+                                function (error, response, streamResultBody) {
+                                    console.log(streamResultBody);
+                                });
+                         });
+                });
+        });
+    res.send(200);
+    return next();
+});
 
-//--------------------------------------------------
-// 5. Direct Line helper
-//--------------------------------------------------
-function dlHeaders(tokenOrSecret) {
-  return {
-    auth: { bearer: tokenOrSecret },
-    json: true
-  };
-}
-
-function startConversation() {
-  return new Promise((resolve, reject) => {
-    request.post(`${MBF_ENDPOINT}/v3/directline/conversations`, dlHeaders(MBF_SECRET), (err, resp, body) => {
-      if (err) return reject(err);
-      resolve({
-        conversationId: body.conversationId,
-        token: body.token,
-        streamUrl: body.streamUrl,
-        watermark: undefined
-      });
-    });
-  });
-}
-
-async function getConversation(userId) {
-  if (convCache.has(userId)) return convCache.get(userId);
-  const conv = await startConversation();
-  convCache.set(userId, conv);
-  return conv;
-}
-
-function dlPostMessage(conversationId, token, fromId, text) {
-  return new Promise((resolve, reject) => {
-    request.post(`${MBF_ENDPOINT}/v3/directline/conversations/${conversationId}/activities`,
-      Object.assign(dlHeaders(token), {
-        json: {
-          type: 'message',
-          from: { id: fromId },
-          text
-        }
-      }), (err, resp, body) => {
-        if (err) return reject(err);
-        resolve(body);
-      });
-  });
-}
-
-function pollBotReply(conv, maxTry = 3, delayMs = 1000) {
-  return new Promise(resolve => {
-    let count = 0;
-    const timer = setInterval(() => {
-      count += 1;
-      request.get(`${MBF_ENDPOINT}/v3/directline/conversations/${conv.conversationId}/activities?watermark=${conv.watermark || ''}`, dlHeaders(conv.token), (err, resp, body) => {
-        if (!err && body && body.activities && body.activities.length > 0) {
-          // 取最後一條 bot 訊息
-          const msgs = body.activities.filter(a => a.from && a.from.role === 'bot' && a.text);
-          if (msgs.length > 0) {
-            clearInterval(timer);
-            conv.watermark = body.watermark; // 更新 watermark
-            return resolve(msgs[msgs.length - 1].text);
-          }
-        }
-        if (count >= maxTry) {
-          clearInterval(timer);
-          return resolve(null); // 超時就不回
-        }
-      });
-    }, delayMs);
-  });
-}
-
-//--------------------------------------------------
-// 6. LINE Messaging API helper
-//--------------------------------------------------
-function lineReply(replyToken, text) {
-  return new Promise((resolve, reject) => {
-    request.post('https://api.line.me/v2/bot/message/reply', {
-      auth: { bearer: LINE_TOKEN },
-      json: {
-        replyToken,
-        messages: [ { type: 'text', text } ]
-      }
-    }, (err, resp, body) => {
-      if (err) return reject(err);
-      resolve(body);
-    });
-  });
-}
-
-//--------------------------------------------------
-// 7. 啟動伺服器
-//--------------------------------------------------
-server.listen(PORT, () => {
-  console.log(`${server.name} listening on ${PORT}`);
+server.listen(process.env.port || process.env.PORT || 5000, function () {
+   console.log('%s listening to %s', server.name, server.url); 
 });
