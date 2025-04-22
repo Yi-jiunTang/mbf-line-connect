@@ -17,7 +17,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
+      
+      - name: Install dependencies
+        working-directory: linebot      # 〈— 指向有 package.json 的資料夾
+        run: npm ci 
+        
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
