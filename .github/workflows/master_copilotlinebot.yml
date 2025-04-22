@@ -27,7 +27,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       
       - name: Install dependencies
-        working-directory: linebot      # 〈— 指向有 package.json 的資料夾
         run: npm install --production
         
       - name: Set up Node.js version
