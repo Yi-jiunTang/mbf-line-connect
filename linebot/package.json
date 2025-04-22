@@ -2,6 +2,9 @@
     "name": "skweatherbot_line",
     "version": "0.0.1",
     "main": "server.js",
+    "scripts": {
+    "start": "node linebot/server.js"      
+  },
     "dependencies": {
         "restify": "^4.3.0",
         "request": "^2.79.0"
