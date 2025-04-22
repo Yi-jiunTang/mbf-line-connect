@@ -3,14 +3,17 @@ name: CI‑CD to Azure Web App
 on:
   push:
     branches:
-      - main    # 确认是你推代码的分支
+      - main
   workflow_dispatch:
 
+env:
+  AZURE_WEBAPP_NAME: copilotlinebot
+  NODE_VERSION: '20.x'
+
 jobs:
-  build-and-deploy:
+  build:
+    name: Build and Package
     runs-on: ubuntu-latest
-    env:
-      AZURE_WEBAPP_NAME: copilotlinebot            # 你的 App Service 名称
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,18 +21,40 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
         run: npm install
 
-      - name: Wait for App Service to stabilize
-        run: sleep 10
+      - name: List files before packaging
+        run: |
+          echo "Working directory: $(pwd)"
+          ls -R .
+
+      - name: Archive project
+        run: zip -r project.zip .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: project
+          path: project.zip
+
+  deploy:
+    name: Deploy to Azure Web App
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: project
+          path: .
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}                         # 必填
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}    # 必填，刚才教你怎么设置
-          package: .                                                      # 关键：部署整个根目录
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: project.zip
 
