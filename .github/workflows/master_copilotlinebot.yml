@@ -1,74 +1,34 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy Node.js app to Azure Web App - copilotlinebot
+name: CI‑CD to Azure Web App
 
 on:
   push:
     branches:
-      - master
-  workflow_dispatch:
-
-env:
-  AZURE_WEBAPP_NAME: copilotlinebot
-  NODE_VERSION: "20.x"
+      - main    # 确认是你推代码的分支
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read #This is required for actions/checkout
-
+    env:
+      AZURE_WEBAPP_NAME: copilotlinebot            # 你的 App Service 名称
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-      
+          node-version: '18.x'
+
       - name: Install dependencies
-        run: npm install --production
+        run: npm install
 
-      - name: List files before deploy
-        run: |
-          echo "Working directory: $(pwd)"
-          ls -R .
-      
-        
-      - name: Set up Node.js version
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20.x'
-
-      - name: npm install, build, and test
-        run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
-
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
-    steps:     
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_A438C2B2BE054AAAA6F9161777028E7E }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4B9422637D0C4558AF6D051B66765920 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_08233C093CDF48BCADF04ABCEFE222EF }}
+      - name: Wait for App Service to stabilize
+        run: sleep 10
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}                   # ← 必填
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}  # ← 必填
-          package: .                                               # ← 打包根目录
-          
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}                         # 必填
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}    # 必填，刚才教你怎么设置
+          package: .                                                      # 关键：部署整个根目录
+          slot-name: production                                           # 如果你用到 slot
