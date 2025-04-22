@@ -9,6 +9,10 @@ on:
       - master
   workflow_dispatch:
 
+env:
+  AZURE_WEBAPP_NAME: copilotlinebot
+  NODE_VERSION: "20.x"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,10 +21,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       
       - name: Install dependencies
         working-directory: linebot      # 〈— 指向有 package.json 的資料夾
-        run: npm ci 
+        run: npm install --production
         
       - name: Set up Node.js version
         uses: actions/setup-node@v3
@@ -74,5 +82,5 @@ jobs:
         with:
           app-name: 'copilotlinebot'
           slot-name: 'Production'
-          package: .
+          package: linebot
           
