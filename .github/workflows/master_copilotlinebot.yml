@@ -65,11 +65,10 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4B9422637D0C4558AF6D051B66765920 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_08233C093CDF48BCADF04ABCEFE222EF }}
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'copilotlinebot'
-          slot-name: 'Production'
-          package: .            # ← 把根目录全推上去
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}                   # ← 必填
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}  # ← 必填
+          package: .                                               # ← 打包根目录
           
