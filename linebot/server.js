@@ -79,7 +79,7 @@ server.post('/', (req, res, next) => {
                 if (msgs.length) {
                   clearInterval(interval);
                   conv.watermark = body.watermark;
-                  return resolve(msgs[msgs.length - 1].text);
+                  return msgs.map(m => m.text).join('\n')
                 }
               }
               if (attempts >= 5) {
@@ -110,3 +110,9 @@ server.post('/', (req, res, next) => {
 server.listen(PORT, () => {
   console.log(`${server.name} listening on ${PORT}`);
 });
+
+server.get('/', (req, res, next) => {
+    res.send(200, 'LINE Webhook OK');
+    next();
+  });
+  
