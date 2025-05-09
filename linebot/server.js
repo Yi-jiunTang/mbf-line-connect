@@ -67,6 +67,7 @@ server.post('/', (req, res, next) => {
             request.get(`${MBF_ENDPOINT}/v3/directline/conversations/${conv.conversationId}/activities?watermark=${conv.watermark}`, {
               auth: { bearer: conv.token }, json: true
             }, (err, _, body) => {
+                console.log('Bot activities:', JSON.stringify(body.activities, null, 2));
               const activities = body?.activities || [];
               if (activities.length) {
                 const msgs = activities.filter(a => a.from?.role === 'bot');
